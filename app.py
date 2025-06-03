@@ -15,12 +15,19 @@ import pkg_resources
 load_dotenv()
 
 # Configure Gemini AI
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+if 'GOOGLE_API_KEY' in st.secrets:
+    genai.configure(api_key=st.secrets['GOOGLE_API_KEY'])
+else:
+    st.error("Please set up the GOOGLE_API_KEY in your Streamlit secrets")
+    st.stop()
 
 # Load and apply custom CSS
 def load_css():
-    with open("style.css") as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    try:
+        with open("style.css") as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning("style.css not found. Some styling may be missing.")
 
 # Custom CSS for card containers
 def create_card(title, content):
