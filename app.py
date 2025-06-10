@@ -1,4 +1,3 @@
-from dotenv import load_dotenv
 import base64
 import streamlit as st
 import os
@@ -7,18 +6,43 @@ from PIL import Image
 import pdf2image
 import google.generativeai as genai
 import json
-import sys
-import subprocess
-import pkg_resources
 
-# Load environment variables
-load_dotenv()
+# Configure Gemini AI with better error handling for Streamlit Cloud
+api_key = None
 
-# Configure Gemini AI
-if 'GOOGLE_API_KEY' in st.secrets:
-    genai.configure(api_key=st.secrets['GOOGLE_API_KEY'])
-else:
-    st.error("Please set up the GOOGLE_API_KEY in your Streamlit secrets")
+# Try to get API key from secrets first (Streamlit Cloud)
+try:
+    if 'GOOGLE_API_KEY' in st.secrets:
+        api_key = st.secrets['GOOGLE_API_KEY']
+    elif os.getenv('GOOGLE_API_KEY'):
+        api_key = os.getenv('GOOGLE_API_KEY')
+    else:
+        # For development, allow manual input
+        st.sidebar.markdown("### 🔑 API Configuration")
+        api_key = st.sidebar.text_input(
+            "Enter your Google API Key", 
+            type="password",
+            help="Get your API key from https://makersuite.google.com/app/apikey"
+        )
+        
+    if api_key and api_key != "your_google_api_key_here":
+        genai.configure(api_key=api_key)
+    else:
+        st.error("⚠️ Please configure your Google API Key")
+        st.info("""
+        **To get your API key:**
+        1. Go to https://makersuite.google.com/app/apikey
+        2. Create a new API key
+        3. Copy it and paste it in the sidebar
+        
+        **For Streamlit Cloud deployment:**
+        - Go to your app Settings → Secrets
+        - Add: GOOGLE_API_KEY = "your_actual_api_key_here"
+        """)
+        st.stop()
+        
+except Exception as e:
+    st.error(f"Error configuring API: {str(e)}")
     st.stop()
 
 # Load and apply custom CSS
@@ -49,52 +73,43 @@ st.set_page_config(
 # Load custom CSS
 load_css()
 
-# Function to check and install missing packages
-def install_missing_packages():
-    required_packages = {
-        'reportlab': 'reportlab',
-        'PyPDF2': 'PyPDF2'
-    }
-    
-    missing_packages = []
-    
-    for package, pip_name in required_packages.items():
-        try:
-            pkg_resources.get_distribution(package)
-        except pkg_resources.DistributionNotFound:
-            missing_packages.append(pip_name)
-    
-    if missing_packages:
-        st.error("Missing required packages. Please run the following command in your Anaconda prompt:")
-        installation_command = "conda install " + " ".join(missing_packages)
-        st.code(installation_command)
-        st.write("Or using pip:")
-        pip_command = "pip install " + " ".join(missing_packages)
-        st.code(pip_command)
-        st.stop()
-
-# Check for required packages
-install_missing_packages()
-
 def get_gemini_response(context, pdf_content, prompt):
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    response = model.generate_content([context, pdf_content[0], prompt])
-    return response.text
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content([context, pdf_content[0], prompt])
+        return response.text
+    except Exception as e:
+        st.error(f"Error generating response: {str(e)}")
+        return f"Error: Unable to process the document. Please check your API key and try again. Error details: {str(e)}"
 
 def input_pdf_setup(uploaded_file):
     if uploaded_file is not None:
-        images = pdf2image.convert_from_bytes(uploaded_file.read())
-        first_page = images[0]
-        img_byte_arr = io.BytesIO()
-        first_page.save(img_byte_arr, format='JPEG')
-        img_byte_arr = img_byte_arr.getvalue()
-        pdf_parts = [
-            {
-                "mime_type": "image/jpeg",
-                "data": base64.b64encode(img_byte_arr).decode()
-            }
-        ]
-        return pdf_parts
+        try:
+            # Reset file pointer to beginning
+            uploaded_file.seek(0)
+            
+            # Convert PDF to images
+            images = pdf2image.convert_from_bytes(uploaded_file.read())
+            
+            if not images:
+                raise ValueError("No pages found in the PDF")
+                
+            first_page = images[0]
+            img_byte_arr = io.BytesIO()
+            first_page.save(img_byte_arr, format='JPEG')
+            img_byte_arr = img_byte_arr.getvalue()
+            
+            pdf_parts = [
+                {
+                    "mime_type": "image/jpeg",
+                    "data": base64.b64encode(img_byte_arr).decode()
+                }
+            ]
+            return pdf_parts
+        except Exception as e:
+            st.error(f"Error processing PDF: {str(e)}")
+            st.info("Please ensure the PDF file is valid and not corrupted.")
+            return None
     else:
         raise FileNotFoundError("No file uploaded")
 
@@ -319,74 +334,98 @@ Present the analysis in a structured dashboard format with clear metrics, scores
 if submit_email:
     if uploaded_file is not None:
         pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(analysis_context, pdf_content, input_prompt_email)
-        st.subheader("Summary Email for Senior Review")
-        st.markdown("---")
-        st.markdown(response)
-        
-        # Add a copy button for the email
-        st.markdown("---")
-        st.markdown("##### Copy Email to Clipboard")
-        if st.button("Copy Email"):
-            st.code(response)
-            st.success("Email content copied to clipboard!")
+        if pdf_content is not None:
+            with st.spinner("Generating summary email..."):
+                response = get_gemini_response(analysis_context, pdf_content, input_prompt_email)
+            st.subheader("Summary Email for Senior Review")
+            st.markdown("---")
+            st.markdown(response)
+            
+            # Add a copy button for the email
+            st.markdown("---")
+            st.markdown("##### Copy Email to Clipboard")
+            if st.button("Copy Email"):
+                st.code(response)
+                st.success("Email content copied to clipboard!")
+        else:
+            st.error("Failed to process the PDF. Please try uploading a different file.")
     else:
         st.write("Please upload the legal document first")
 
 if submit1:
     if uploaded_file is not None:
         pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(analysis_context, pdf_content, input_prompt1)
-        st.subheader("Document Overview and Validity Analysis")
-        st.write(response)
+        if pdf_content is not None:
+            with st.spinner("Analyzing document overview..."):
+                response = get_gemini_response(analysis_context, pdf_content, input_prompt1)
+            st.subheader("Document Overview and Validity Analysis")
+            st.write(response)
+        else:
+            st.error("Failed to process the PDF. Please try uploading a different file.")
     else:
         st.write("Please upload the legal document")
 
 elif submit2:
     if uploaded_file is not None:
         pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(analysis_context, pdf_content, input_prompt2)
-        st.subheader("Risk Assessment and Compliance Analysis")
-        st.write(response)
+        if pdf_content is not None:
+            with st.spinner("Conducting risk assessment..."):
+                response = get_gemini_response(analysis_context, pdf_content, input_prompt2)
+            st.subheader("Risk Assessment and Compliance Analysis")
+            st.write(response)
+        else:
+            st.error("Failed to process the PDF. Please try uploading a different file.")
     else:
         st.write("Please upload the legal document")
 
 elif submit3:
     if uploaded_file is not None:
         pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(analysis_context, pdf_content, input_prompt3)
-        st.subheader("Contract Terms and Obligations Analysis")
-        st.write(response)
+        if pdf_content is not None:
+            with st.spinner("Analyzing contract terms..."):
+                response = get_gemini_response(analysis_context, pdf_content, input_prompt3)
+            st.subheader("Contract Terms and Obligations Analysis")
+            st.write(response)
+        else:
+            st.error("Failed to process the PDF. Please try uploading a different file.")
     else:
         st.write("Please upload the legal document")
 
 elif submit4:
     if uploaded_file is not None:
         pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(analysis_context, pdf_content, input_prompt4)
-        st.subheader("Legal Language and Clarity Review")
-        st.write(response)
+        if pdf_content is not None:
+            with st.spinner("Reviewing legal language..."):
+                response = get_gemini_response(analysis_context, pdf_content, input_prompt4)
+            st.subheader("Legal Language and Clarity Review")
+            st.write(response)
+        else:
+            st.error("Failed to process the PDF. Please try uploading a different file.")
     else:
         st.write("Please upload the legal document")
 
 elif submit5:
     if uploaded_file is not None:
         pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(analysis_context, pdf_content, input_prompt5)
-        st.subheader("Document Classification and Recommendations")
-        st.write(response)
+        if pdf_content is not None:
+            with st.spinner("Classifying document..."):
+                response = get_gemini_response(analysis_context, pdf_content, input_prompt5)
+            st.subheader("Document Classification and Recommendations")
+            st.write(response)
+        else:
+            st.error("Failed to process the PDF. Please try uploading a different file.")
     else:
         st.write("Please upload the legal document")
 
 elif submit6:
     if uploaded_file is not None:
         pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(analysis_context, pdf_content, input_prompt6)
-        st.subheader("Document KPIs and Metrics Analysis")
-        st.write(response)
+        if pdf_content is not None:
+            with st.spinner("Calculating KPIs and metrics..."):
+                response = get_gemini_response(analysis_context, pdf_content, input_prompt6)
+            st.subheader("Document KPIs and Metrics Analysis")
+            st.write(response)
+        else:
+            st.error("Failed to process the PDF. Please try uploading a different file.")
     else:
-        st.write("Please upload the legal document")
-
-
-
-
+        st.write("Please upload the legal document") 
