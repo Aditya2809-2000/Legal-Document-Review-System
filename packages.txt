@@ -1,2 +1,2 @@
 poppler-utils
-python3-pip 
+libgl1
