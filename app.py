@@ -7,6 +7,14 @@ import pdf2image
 import google.generativeai as genai
 import json
 
+# Initialize Streamlit page - MUST BE FIRST STREAMLIT COMMAND
+st.set_page_config(
+    page_title="Legal Document Review System",
+    page_icon="⚖️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 # Configure Gemini AI with better error handling for Streamlit Cloud
 api_key = None
 
@@ -61,14 +69,6 @@ def create_card(title, content):
             <p>{content}</p>
         </div>
     """, unsafe_allow_html=True)
-
-# Initialize Streamlit page
-st.set_page_config(
-    page_title="Legal Document Review System",
-    page_icon="⚖️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Load custom CSS
 load_css()
