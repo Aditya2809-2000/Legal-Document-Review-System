@@ -1,89 +1,37 @@
-# Legal Document Analyzer
+# ⚖️ Legal Document Review System
 
-An AI-powered legal document analysis system that helps legal professionals review and analyze documents with precision and efficiency.
+An AI-powered legal document analysis system built with Streamlit and Google's Gemini AI.
 
-## Features
+## 🚀 Features
 
-- Document upload and analysis
-- Risk assessment and compliance verification
-- Entity extraction and summarization
-- Beautiful, responsive UI with modern design
-- Drag-and-drop file upload
-- Comprehensive metrics and insights
+- Document Overview and Validity Analysis
+- Risk Assessment and Compliance Analysis
+- Contract Terms and Obligations Analysis
+- Legal Language and Clarity Review
+- Document Classification and Recommendations
+- KPI Analysis and Metrics
+- Summary Email Generation
 
-## Tech Stack
+## 🛠️ Setup
 
-- Flask (Backend web framework)
-- spaCy (Natural Language Processing)
-- PyPDF2 (PDF text extraction)
-- Modern HTML/CSS with responsive design
-- JavaScript for interactive features
+1. Install dependencies: `pip install -r requirements.txt`
+2. Get your Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+3. Run locally: `streamlit run app.py`
 
-## Setup Instructions
+## 🌐 Deploy to Streamlit Cloud
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd legal-document-analyzer
-```
+1. Fork this repository
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Create new app with `app.py`
+4. Add your API key in Settings → Secrets:
+   ```toml
+   GOOGLE_API_KEY = "your_api_key_here"
+   ```
+5. Deploy!
 
-2. Create and activate a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+## 📁 Files
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-4. Download spaCy language model:
-```bash
-python -m spacy download en_core_web_sm
-```
-
-5. Run the application:
-```bash
-python app.py
-```
-
-6. Open your browser and navigate to:
-```
-http://localhost:5000
-```
-
-## Usage
-
-1. Upload a legal document (supported formats: PDF, DOC, DOCX, TXT)
-2. Wait for the analysis to complete
-3. Review the generated insights:
-   - Document summary
-   - Key entities
-   - Risk assessment
-   - Compliance score
-
-## Project Structure
-
-```
-legal-document-analyzer/
-├── app.py              # Flask application
-├── requirements.txt    # Project dependencies
-├── static/
-│   └── style.css      # CSS styles
-├── templates/
-│   └── index.html     # HTML template
-└── uploads/           # Temporary file storage
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
+- `app.py` - Main application
+- `requirements.txt` - Python dependencies
+- `packages.txt` - System dependencies
+- `style.css` - Custom styling
